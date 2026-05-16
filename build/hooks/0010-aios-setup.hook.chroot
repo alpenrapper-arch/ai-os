@@ -1,0 +1,24 @@
+#!/bin/bash
+# AI-OS Post-Install Hook
+
+# SDDM aktivieren (Login-Manager)
+systemctl enable sddm
+
+# KDE als Standard-Session
+mkdir -p /etc/sddm.conf.d
+cat > /etc/sddm.conf.d/kde.conf << 'EOF'
+[Desktop]
+Session=plasma
+EOF
+
+# AI-OS Nutzer anlegen
+useradd -m -s /bin/bash -G sudo,audio,video,plugdev aios
+echo "aios:aios" | chpasswd
+
+# Hostname
+echo "ai-os" > /etc/hostname
+
+# Sudo ohne Passwort für ersten Start
+echo "aios ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/aios
+
+echo "AI-OS Hook abgeschlossen"
