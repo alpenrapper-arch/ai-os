@@ -1,0 +1,17 @@
+# AI-OS Security Pakete - Ubuntu Noble (korrigiert 2026-05-16)
+ufw
+fail2ban
+apparmor
+apparmor-profiles
+apparmor-utils
+auditd
+rkhunter
+chkrootkit
+clamav
+clamav-daemon
+libpam-pwquality
+unattended-upgrades
+apt-listchanges
+needrestart
+cryptsetup
+cryptsetup-initramfs
