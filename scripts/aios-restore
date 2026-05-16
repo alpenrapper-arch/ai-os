@@ -1,0 +1,98 @@
+#!/bin/bash
+# AI-OS Cloud Restore — stellt alles 1:1 wieder her
+# Wird beim ISO-Start angeboten (vor/nach Installation)
+
+TITLE="AI-OS Wiederherstellung"
+
+echo ""
+echo "╔══════════════════════════════════════════╗"
+echo "║     AI-OS Cloud Wiederherstellung        ║"
+echo "╚══════════════════════════════════════════╝"
+echo ""
+
+# rclone installiert?
+if ! command -v rclone &>/dev/null; then
+    echo "rclone wird installiert..."
+    curl -sf https://rclone.org/install.sh | bash 2>/dev/null
+fi
+
+# Cloud-Verbindung konfigurieren
+echo "Welcher Cloud-Anbieter?"
+select PROVIDER in "Google Drive" "OneDrive" "Dropbox" "Nextcloud" "Abbrechen"; do
+    case $PROVIDER in
+        "Google Drive")  rclone config create restore-cloud drive 2>/dev/null; break ;;
+        "OneDrive")      rclone config create restore-cloud onedrive 2>/dev/null; break ;;
+        "Dropbox")       rclone config create restore-cloud dropbox 2>/dev/null; break ;;
+        "Nextcloud")
+            read -p "Server URL: " URL
+            read -p "Benutzer: " USER
+            read -sp "Passwort: " PASS; echo
+            rclone config create restore-cloud webdav url="$URL" \
+                vendor=nextcloud user="$USER" pass="$(rclone obscure "$PASS")" 2>/dev/null
+            break ;;
+        "Abbrechen") exit 0 ;;
+    esac
+done
+
+REMOTE="restore-cloud:AI-OS-Backup"
+
+# System-Info vom Backup lesen
+echo "Lese Backup-Informationen..."
+rclone copyto "$REMOTE/system/sysinfo.json" /tmp/restore-sysinfo.json 2>/dev/null
+
+if [ -f /tmp/restore-sysinfo.json ]; then
+    python3 -c "
+import json
+d = json.load(open('/tmp/restore-sysinfo.json'))
+print(f\"  Benutzer:    {d.get('username','?')}\")
+print(f\"  Hostname:    {d.get('hostname','?')}\")
+print(f\"  Gesichert:   {d.get('backup_date','?')}\")
+print(f\"  AI-OS:       {d.get('aios_version','?')}\")
+"
+    echo ""
+    read -p "Wiederherstellung starten? [j/N] " CONFIRM
+    [ "$CONFIRM" != "j" ] && [ "$CONFIRM" != "J" ] && exit 0
+else
+    echo "Kein Backup gefunden. Prüfe Cloud-Verbindung."
+    exit 1
+fi
+
+# Benutzername aus Backup
+USERNAME=$(python3 -c "import json; print(json.load(open('/tmp/restore-sysinfo.json')).get('username','user'))")
+USER_HOME="/home/$USERNAME"
+
+echo ""
+echo "Starte Wiederherstellung..."
+
+# 1. Pakete wiederherstellen
+echo "[1/3] Installierte Programme wiederherstellen..."
+rclone copyto "$REMOTE/system/packages.txt" /tmp/restore-packages.txt 2>/dev/null
+if [ -f /tmp/restore-packages.txt ]; then
+    apt-get update -qq 2>/dev/null
+    dpkg --set-selections < /tmp/restore-packages.txt 2>/dev/null
+    apt-get dselect-upgrade -y -q 2>/dev/null
+    echo "  ✅ Programme wiederhergestellt"
+fi
+
+# 2. Benutzerdaten wiederherstellen
+echo "[2/3] Persönliche Daten wiederherstellen..."
+mkdir -p "$USER_HOME"
+rclone sync "$REMOTE/home" "$USER_HOME" \
+    --transfers=8 \
+    --progress 2>/dev/null
+chown -R "$USERNAME:$USERNAME" "$USER_HOME" 2>/dev/null
+echo "  ✅ Daten wiederhergestellt"
+
+# 3. AIOS Konfiguration
+echo "[3/3] AI-OS Einstellungen wiederherstellen..."
+rclone sync "$REMOTE/system/aios-config" /etc/aios 2>/dev/null
+rclone copyto "$REMOTE/system/rclone.conf" /root/.config/rclone/rclone.conf 2>/dev/null
+echo "  ✅ AI-OS Einstellungen wiederhergestellt"
+
+echo ""
+echo "╔══════════════════════════════════════════╗"
+echo "║  ✅ Wiederherstellung abgeschlossen!      ║"
+echo "║  System startet in 10 Sekunden neu...    ║"
+echo "╚══════════════════════════════════════════╝"
+sleep 10
+reboot
