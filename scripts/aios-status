@@ -1,0 +1,11 @@
+#!/bin/bash
+# AI-OS Status Übersicht
+echo "╔══════════════════════════════════════╗"
+echo "║           AI-OS Status               ║"
+echo "╠══════════════════════════════════════╣"
+echo "║ AIOS-CORE:  $(systemctl is-active aios-core 2>/dev/null || echo 'unknown')                    ║"
+echo "║ Netzwerk:   $(nmcli networking 2>/dev/null || echo 'unknown')                    ║"
+echo "║ RAM frei:   $(free -h | awk '/Mem:/{print $7}')                       ║"
+echo "║ Disk:       $(df -h / | awk 'NR==2{print $5 " (" $4 " frei)"}')           ║"
+echo "╚══════════════════════════════════════╝"
+journalctl -u aios-core --since "1 hour ago" --no-pager -q | grep -E "GELÖST|Problem|gestartet" | tail -5
