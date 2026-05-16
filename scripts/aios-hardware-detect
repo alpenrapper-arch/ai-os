@@ -1,0 +1,39 @@
+#!/bin/bash
+# AI-OS Hardware-Erkennung
+# Läuft beim ersten Boot und wählt Desktop + AI-Modus
+
+RAM_MB=$(free -m | awk '/^Mem:/{print $2}')
+CPU_CORES=$(nproc)
+CPU_MHZ=$(grep "cpu MHz" /proc/cpuinfo | head -1 | awk '{print int($4)}')
+
+echo "=== AI-OS Hardware Detection ==="
+echo "RAM: ${RAM_MB}MB | CPU Kerne: ${CPU_CORES} | CPU MHz: ${CPU_MHZ}"
+
+# Entscheidung
+if [ "$RAM_MB" -lt 2000 ] || [ "$CPU_CORES" -lt 2 ]; then
+    MODE="lite"
+    echo "Modus: LITE (alter/schwacher PC)"
+else
+    MODE="full"
+    echo "Modus: FULL (moderner PC)"
+fi
+
+# Modus speichern
+echo "AIOS_MODE=$MODE" > /etc/aios/hardware-mode.conf
+echo "AIOS_RAM_MB=$RAM_MB" >> /etc/aios/hardware-mode.conf
+echo "AIOS_CPU_CORES=$CPU_CORES" >> /etc/aios/hardware-mode.conf
+
+# Desktop wählen
+if [ "$MODE" = "lite" ]; then
+    # LXQt aktivieren
+    mkdir -p /etc/sddm.conf.d
+    echo -e "[Desktop]\nSession=lxqt" > /etc/sddm.conf.d/session.conf
+    echo "Desktop: LXQt (leicht)"
+else
+    # KDE aktivieren
+    mkdir -p /etc/sddm.conf.d
+    echo -e "[Desktop]\nSession=plasma" > /etc/sddm.conf.d/session.conf
+    echo "Desktop: KDE Plasma (voll)"
+fi
+
+echo "Hardware-Erkennung abgeschlossen: $MODE"
