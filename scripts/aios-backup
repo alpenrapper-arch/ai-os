@@ -1,0 +1,79 @@
+#!/bin/bash
+# AI-OS Cloud Backup — sichert alles automatisch
+# Stündlich inkrementell, täglich vollständig
+
+CONF="/etc/aios/cloud.conf"
+LOG="/var/log/aios-backup.log"
+SNAP_DIR="/var/lib/aios/snapshots"
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M')] $*" | tee -a "$LOG"; }
+
+[ ! -f "$CONF" ] && exit 0
+source "$CONF"
+
+REMOTE="${CLOUD_REMOTE}:${CLOUD_PATH}"
+USER_HOME=$(getent passwd 1000 | cut -d: -f6)
+USERNAME=$(getent passwd 1000 | cut -d: -f1)
+mkdir -p "$SNAP_DIR"
+
+# Was wird gesichert
+backup_user_data() {
+    log "Sichere Benutzerdaten ($USERNAME)..."
+    rclone sync "$USER_HOME" "$REMOTE/home" \
+        --exclude ".cache/**" \
+        --exclude ".local/share/Trash/**" \
+        --exclude "*.tmp" \
+        --transfers=4 \
+        --log-file="$LOG" \
+        --log-level=INFO 2>/dev/null
+}
+
+backup_system() {
+    log "Sichere System-Konfiguration..."
+
+    # Installierte Pakete
+    dpkg --get-selections > /tmp/aios-packages.txt
+    rclone copyto /tmp/aios-packages.txt "$REMOTE/system/packages.txt" 2>/dev/null
+
+    # AIOS Konfiguration
+    rclone sync /etc/aios "$REMOTE/system/aios-config" 2>/dev/null
+
+    # rclone Konfiguration (für Restore)
+    rclone copyto ~/.config/rclone/rclone.conf "$REMOTE/system/rclone.conf" 2>/dev/null
+
+    # System-Info
+    cat > /tmp/aios-sysinfo.json << JSON
+{
+  "hostname": "$(hostname)",
+  "username": "$USERNAME",
+  "backup_date": "$(date -Iseconds)",
+  "aios_version": "1.0",
+  "packages": "packages.txt"
+}
+JSON
+    rclone copyto /tmp/aios-sysinfo.json "$REMOTE/system/sysinfo.json" 2>/dev/null
+    log "System-Backup fertig"
+}
+
+# Modus
+case "${1:-auto}" in
+    --initial)
+        log "=== Erstes Backup ==="
+        backup_system
+        backup_user_data
+        log "=== Erstes Backup fertig ==="
+        ;;
+    --full)
+        log "=== Vollständiges Backup ==="
+        backup_system
+        backup_user_data
+        log "=== Vollständiges Backup fertig ==="
+        ;;
+    auto|*)
+        # Stündlich: nur geänderte Dateien
+        log "Inkrementelles Backup..."
+        backup_user_data
+        # System täglich (02:00)
+        [ "$(date +%H)" = "02" ] && backup_system
+        ;;
+esac
