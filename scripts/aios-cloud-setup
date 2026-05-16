@@ -1,0 +1,70 @@
+#!/bin/bash
+# AI-OS Cloud Setup — erscheint beim ersten Start nach Installation
+# Benutzer wählt Cloud-Anbieter → wird automatisch verbunden
+
+FLAG="/etc/aios/cloud.conf"
+[ -f "$FLAG" ] && exit 0  # bereits eingerichtet
+
+TITLE="AI-OS Cloud Backup"
+
+# Cloud-Anbieter auswählen
+CHOICE=$(zenity --list \
+    --title="$TITLE" \
+    --text="<b>Wähle deinen Cloud-Speicher für automatische Backups:</b>\n\nBei Festplatten-Wechsel oder Hardware-Fehler wird alles\nexakt so wiederhergestellt wie es war.\n" \
+    --column="Anbieter" --column="Details" \
+    --width=500 --height=380 \
+    "Google Drive"  "15 GB kostenlos" \
+    "OneDrive"      "5 GB kostenlos (Microsoft)" \
+    "Dropbox"       "2 GB kostenlos" \
+    "Nextcloud"     "Eigener Server" \
+    "Überspringen"  "Später einrichten (nicht empfohlen)" \
+    2>/dev/null)
+
+[ -z "$CHOICE" ] && exit 0
+[ "$CHOICE" = "Überspringen" ] && exit 0
+
+# rclone Remote einrichten
+case "$CHOICE" in
+    "Google Drive")  REMOTE_TYPE="drive" ;;
+    "OneDrive")      REMOTE_TYPE="onedrive" ;;
+    "Dropbox")       REMOTE_TYPE="dropbox" ;;
+    "Nextcloud")     REMOTE_TYPE="webdav" ;;
+esac
+
+zenity --info \
+    --title="$TITLE" \
+    --text="Browser öffnet sich zur Anmeldung bei <b>$CHOICE</b>.\n\nNach der Anmeldung wird AI-OS automatisch\nmit deinem Cloud-Speicher verbunden." \
+    --width=400 2>/dev/null
+
+# rclone konfigurieren (öffnet Browser automatisch)
+if [ "$REMOTE_TYPE" = "webdav" ]; then
+    URL=$(zenity --entry --title="Nextcloud URL" \
+        --text="Nextcloud Server-Adresse:" \
+        --entry-text="https://cloud.example.com" 2>/dev/null)
+    USER=$(zenity --entry --title="Nextcloud Login" \
+        --text="Benutzername:" 2>/dev/null)
+    PASS=$(zenity --password --title="Nextcloud Passwort" 2>/dev/null)
+    rclone config create aios-cloud webdav \
+        url="$URL" vendor=nextcloud user="$USER" pass="$(rclone obscure "$PASS")" \
+        2>/dev/null
+else
+    rclone config create aios-cloud "$REMOTE_TYPE" 2>/dev/null
+fi
+
+# Konfiguration speichern
+mkdir -p /etc/aios
+cat > /etc/aios/cloud.conf << CONF
+CLOUD_PROVIDER=$CHOICE
+CLOUD_REMOTE=aios-cloud
+CLOUD_PATH=AI-OS-Backup
+BACKUP_INTERVAL=3600
+CONF
+
+# Erstes Backup sofort starten
+zenity --info \
+    --title="$TITLE" \
+    --text="✅ <b>$CHOICE verbunden!</b>\n\nErstes Backup wird jetzt erstellt...\nAI-OS sichert ab jetzt automatisch alle Daten." \
+    --width=400 2>/dev/null
+
+/usr/local/bin/aios-backup --initial &
+
