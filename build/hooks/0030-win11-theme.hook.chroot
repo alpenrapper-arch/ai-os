@@ -1,0 +1,69 @@
+#!/bin/bash
+# AI-OS: Windows 11 Look & Feel für KDE Plasma
+set -e
+
+echo "[AI-OS] Installiere Windows 11 Theme..."
+
+# Lightly-Breeze als Win11-ähnliches Theme (in Ubuntu verfügbar)
+apt-get install -y --no-install-recommends \
+    kde-style-breeze \
+    breeze-icon-theme \
+    plasma-theme-oxygen \
+    kde-config-gtk-style \
+    kde-config-gtk-style-preview \
+    qt5-style-kvantum \
+    qt5-style-kvantum-themes \
+    2>/dev/null || true
+
+# KDE Plasma Default-Einstellungen für Win11-Look
+mkdir -p /etc/skel/.config
+
+# Plasma Global Theme → Breeze (Win11-Stil)
+cat > /etc/skel/.config/plasmarc << 'PLASMACONF'
+[Theme]
+name=breeze
+PLASMACONF
+
+# KWin Fensterdekorationen
+cat > /etc/skel/.config/kwinrc << 'KWINCONF'
+[org.kde.kdecoration2]
+ButtonsOnLeft=
+ButtonsOnRight=IAX
+library=org.kde.breeze
+theme=Breeze
+
+[Desktops]
+Rows=1
+Number=1
+
+[Windows]
+BorderlessMaximizedWindows=true
+KWINCONF
+
+# Taskbar unten (Windows-Style)
+cat > /etc/skel/.config/plasmashellrc << 'PLASMASHELL'
+[PlasmaViews][Panel 1]
+floating=0
+thickness=44
+PLASMASHELL
+
+# Icons: Breeze (clean, modern)
+cat > /etc/skel/.config/kdeglobals << 'KDEGLOBAL'
+[Icons]
+Theme=breeze
+
+[KDE]
+SingleClick=false
+AnimationDurationFactor=0.5
+widgetStyle=Breeze
+
+[General]
+ColorScheme=BreezeLight
+font=Segoe UI,10,-1,5,50,0,0,0,0,0
+fixed=Cascadia Code,10,-1,5,50,0,0,0,0,0
+
+[WM]
+activeFont=Segoe UI,10,-1,5,700,0,0,0,0,0
+KDEGLOBAL
+
+echo "[AI-OS] Windows 11 Theme konfiguriert ✓"
