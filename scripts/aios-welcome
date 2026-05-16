@@ -1,0 +1,25 @@
+#!/bin/bash
+# AI-OS Welcome Screen — erscheint beim ersten Start
+FLAG="/var/lib/aios/.welcome_done"
+[ -f "$FLAG" ] && exit 0
+
+# Nur wenn X läuft
+[ -z "$DISPLAY" ] && exit 0
+
+# Zenity-Dialog (GUI)
+if command -v zenity &>/dev/null; then
+    zenity --info \
+        --title="Willkommen bei AI-OS" \
+        --width=500 \
+        --text="<b>AI-OS — Das selbstheilende Betriebssystem</b>\n\n\
+✅ AIOS-CORE läuft im Hintergrund\n\
+🛡️ Sicherheits-Monitoring aktiv\n\
+🤖 KI-Assistent bereit\n\n\
+<i>Ihr System überwacht und repariert sich selbst.</i>\n\n\
+Für KI-Funktionen: Terminal → 'ai' eingeben\n\
+Status: Terminal → 'aios-status' eingeben" \
+        --icon-name=computer 2>/dev/null
+fi
+
+mkdir -p /var/lib/aios
+touch "$FLAG"
