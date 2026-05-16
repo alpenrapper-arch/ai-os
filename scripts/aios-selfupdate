@@ -1,0 +1,36 @@
+#!/bin/bash
+# AIOS Self-Update — pullt AI-OS Kern-Dateien von GitHub
+# Kein eigener Server nötig — GitHub ist kostenlos & zuverlässig
+REPO="https://raw.githubusercontent.com/YOUR_USER/ai-os/main"
+LOG="/var/log/aios-updater.log"
+UPDATED=0
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M')] $*" | tee -a "$LOG"; }
+
+update_file() {
+    local url="$1" dest="$2"
+    local tmp=$(mktemp)
+    if curl -sf "$url" -o "$tmp" 2>/dev/null; then
+        if ! cmp -s "$tmp" "$dest"; then
+            cp "$tmp" "$dest"
+            chmod +x "$dest"
+            log "Aktualisiert: $dest"
+            UPDATED=$((UPDATED + 1))
+        fi
+    fi
+    rm -f "$tmp"
+}
+
+log "AIOS Self-Update prüft GitHub..."
+
+update_file "$REPO/aios-core/aios-core.py"     /usr/local/lib/aios/aios-core.py
+update_file "$REPO/scripts/aios-hardware-detect" /usr/local/bin/aios-hardware-detect
+update_file "$REPO/scripts/aios-updater"         /usr/local/bin/aios-updater
+update_file "$REPO/scripts/aios-status"          /usr/local/bin/aios-status
+
+if [ $UPDATED -gt 0 ]; then
+    log "$UPDATED Datei(en) aktualisiert — starte AIOS-CORE neu"
+    systemctl restart aios-core 2>/dev/null || true
+else
+    log "Alles aktuell (kein Update nötig)"
+fi
