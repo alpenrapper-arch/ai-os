@@ -1,0 +1,25 @@
+#!/bin/bash
+# AI-OS: Services aktivieren
+set -e
+
+echo "[AI-OS] Aktiviere System-Services..."
+
+# AIOS-CORE self-healing
+systemctl enable aios-core.service 2>/dev/null || true
+
+# NetworkManager statt networkd
+systemctl enable NetworkManager 2>/dev/null || true
+systemctl disable systemd-networkd 2>/dev/null || true
+
+# Drucker
+systemctl enable cups 2>/dev/null || true
+
+# SDDM Login Manager
+systemctl enable sddm 2>/dev/null || true
+systemctl set-default graphical.target 2>/dev/null || true
+
+echo "[AI-OS] Services aktiviert ✓"
+
+# Auto-Updater
+systemctl enable aios-updater.timer 2>/dev/null || true
+systemctl enable unattended-upgrades 2>/dev/null || true
