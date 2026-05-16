@@ -1,0 +1,76 @@
+#!/bin/bash
+# AIOS-UPDATER — Over-the-Air Auto-Update
+# Läuft täglich, aktualisiert alles: Kernel, Treiber, Pakete, AI-Modelle
+set -e
+LOG="/var/log/aios-updater.log"
+STAMP="/var/lib/aios/last-update"
+mkdir -p /var/lib/aios
+
+log() { echo "[$(date '+%Y-%m-%d %H:%M')] $*" | tee -a "$LOG"; }
+
+log "=== AIOS-UPDATE gestartet ==="
+
+# 1. Paketlisten aktualisieren
+log "Paketlisten aktualisieren..."
+apt-get update -qq 2>/dev/null
+
+# 2. Sicherheits-Updates sofort (unattended)
+log "Sicherheits-Updates..."
+apt-get install -y --only-upgrade \
+    $(apt-get --just-print upgrade 2>/dev/null | grep "^Inst" | grep -i secur | awk '{print $2}') \
+    2>/dev/null || true
+
+# 3. Alle Pakete updaten (in der Nacht)
+HOUR=$(date +%H)
+if [ "$HOUR" -ge 2 ] && [ "$HOUR" -le 4 ]; then
+    log "Nacht-Update: alle Pakete..."
+    DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -q \
+        -o Dpkg::Options::="--force-confold" 2>/dev/null
+    log "Paket-Update abgeschlossen"
+fi
+
+# 4. Treiber-Updates (ubuntu-drivers)
+if command -v ubuntu-drivers &>/dev/null; then
+    log "Treiber prüfen..."
+    ubuntu-drivers autoinstall 2>/dev/null && log "Treiber aktuell" || true
+fi
+
+# 5. Kernel-Update Prüfung
+CURRENT=$(uname -r)
+LATEST=$(apt-cache search linux-image-generic | grep -v low | head -1 | awk '{print $1}')
+log "Kernel: läuft $CURRENT"
+if apt-get install -y --no-install-recommends linux-generic 2>/dev/null; then
+    NEW=$(dpkg -l 'linux-image-*' 2>/dev/null | grep ^ii | sort -V | tail -1 | awk '{print $3}')
+    log "Kernel verfügbar: $NEW"
+fi
+
+# 6. Ollama AI-Modelle updaten (wenn vorhanden)
+if command -v ollama &>/dev/null; then
+    log "AI-Modelle aktualisieren..."
+    ollama list 2>/dev/null | awk 'NR>1{print $1}' | while read model; do
+        ollama pull "$model" 2>/dev/null && log "Modell aktuell: $model" || true
+    done
+fi
+
+# 7. AIOS-CORE selbst updaten (wenn Server erreichbar)
+AIOS_SERVER="${AIOS_UPDATE_SERVER:-}"
+if [ -n "$AIOS_SERVER" ]; then
+    log "AIOS-CORE Update prüfen..."
+    NEW_CORE=$(curl -sf "$AIOS_SERVER/aios-core.py" 2>/dev/null)
+    if [ -n "$NEW_CORE" ]; then
+        echo "$NEW_CORE" > /usr/local/lib/aios/aios-core.py
+        systemctl restart aios-core
+        log "AIOS-CORE aktualisiert vom Server"
+    fi
+fi
+
+# 8. Autoremove + Clean
+apt-get autoremove -y -q 2>/dev/null
+apt-get autoclean -q 2>/dev/null
+
+date > "$STAMP"
+# 9. AIOS Kern-Skripte von GitHub
+log "AIOS Self-Update..."
+/usr/local/bin/aios-selfupdate 2>/dev/null || true
+
+log "=== Update fertig ==="
