@@ -1,0 +1,27 @@
+---
+componentName: aios
+
+strings:
+  productName:       "AI-OS"
+  shortProductName:  "AI-OS"
+  version:           "1.0"
+  shortVersion:      "1.0"
+  versionedName:     "AI-OS 1.0"
+  shortVersionedName: "AI-OS 1.0"
+  bootloaderEntryName: "AI-OS"
+  productUrl:        "https://github.com/alpenrapper-arch/ai-os"
+  supportUrl:        "https://github.com/alpenrapper-arch/ai-os/issues"
+  releaseNotesUrl:   "https://github.com/alpenrapper-arch/ai-os"
+
+images:
+  productLogo:    "logo.png"
+  productIcon:    "logo.png"
+  productWelcome: "welcome.png"
+
+slideshow: "show.qml"
+
+style:
+  sidebarBackground:    "#1a1a2e"
+  sidebarText:          "#ffffff"
+  sidebarTextSelected:  "#00d4ff"
+  sidebarBackground2:   "#16213e"
