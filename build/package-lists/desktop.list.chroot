@@ -1,0 +1,64 @@
+# AI-OS Desktop - Ubuntu Noble Pakete (korrigiert 2026-05-16)
+
+# Leicht (LXQt) - läuft auf alten PCs mit 512MB RAM
+lxqt
+lxqt-panel
+lxqt-runner
+openbox
+pcmanfm-qt
+featherpad
+lximage-qt
+
+# Voll (KDE) - für moderne PCs
+kde-plasma-desktop
+plasma-nm
+plasma-pa
+dolphin
+konsole
+kate
+kwin-x11
+
+# Login-Manager
+sddm
+sddm-theme-breeze
+
+# System
+network-manager
+network-manager-gnome
+pulseaudio
+bluez
+bluez-tools
+
+# Fonts (Windows-ähnlich)
+fonts-liberation
+fonts-noto-core
+fonts-noto-cjk
+
+# Tools
+sudo
+curl
+wget
+git
+python3
+python3-pip
+python3-requests
+
+# Drucker
+cups
+cups-browsed
+
+# Multimedia
+vlc
+ffmpeg
+
+# Office
+libreoffice
+libreoffice-kde
+
+# Browser
+firefox
+
+# AI-OS Basics
+python3-gi
+python3-dbus
+at-spi2-core
