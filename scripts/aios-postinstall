@@ -1,0 +1,40 @@
+#!/bin/bash
+# Läuft nach Calamares Installation im neuen System
+LOG="/var/log/aios-install.log"
+log() { echo "[$(date '+%H:%M')] $*" | tee -a "$LOG"; }
+
+log "AI-OS Post-Install gestartet..."
+
+# AIOS-CORE Problem-DB erstellen
+mkdir -p /etc/aios
+cat > /etc/aios/problem-db.json << 'JSON'
+{
+  "known_fixes": {
+    "service_crashed": "systemctl restart {service}",
+    "disk_full": "journalctl --vacuum-size=200M && apt-get clean -y",
+    "network_down": "systemctl restart NetworkManager",
+    "dns_broken": "echo 'nameserver 8.8.8.8' > /etc/resolv.conf",
+    "swap_full": "swapoff -a && swapon -a"
+  },
+  "learned_fixes": {},
+  "stats": {"problems_detected": 0, "problems_fixed": 0}
+}
+JSON
+
+# OTA Update Server setzen
+mkdir -p /etc/aios
+echo "AIOS_UPDATE_SERVER=https://raw.githubusercontent.com/alpenrapper-arch/ai-os/main" \
+    > /etc/aios/update.conf
+
+# Autostart Welcome beim ersten Login
+mkdir -p /etc/xdg/autostart
+cat > /etc/xdg/autostart/aios-welcome.desktop << 'DESK'
+[Desktop Entry]
+Type=Application
+Name=AI-OS Welcome
+Exec=/usr/local/bin/aios-welcome
+NoDisplay=true
+X-GNOME-Autostart-enabled=true
+DESK
+
+log "AI-OS Post-Install fertig ✓"
